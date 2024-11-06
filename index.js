@@ -18,16 +18,10 @@ app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Allow all origins
-        }
-    },
+    origin: '*', // Allow all origins
     credentials: true, // Allow credentials to be sent
 }));
+
 
 
 mongoose.connect(process.env.MONGO_URL).then(() => {
