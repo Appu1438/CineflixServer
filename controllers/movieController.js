@@ -14,8 +14,8 @@ const History = require('../models/History')
 
 
 // Manually set the FFmpeg path
-ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
-ffmpeg.setFfprobePath('C:\\ffmpeg\\bin\\ffprobe.exe');
+// ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
+// ffmpeg.setFfprobePath('C:\\ffmpeg\\bin\\ffprobe.exe');
 
 // Test if FFmpeg works
 ffmpeg.getAvailableFormats((err, formats) => {
@@ -25,6 +25,7 @@ ffmpeg.getAvailableFormats((err, formats) => {
         console.log('Available formats:', formats);
     }
 });
+
 const add_movie = async (req, res) => {
     if (req.user.isAdmin) {
         const newMovie = new Movie(req.body)
