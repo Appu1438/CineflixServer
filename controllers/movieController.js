@@ -73,7 +73,7 @@ const upload_video = async (req, res) => {
             await new Promise((resolve, reject) => {
                 ffmpeg(originalVideoPath)
                     .output(outputQualityPath)
-                    .videoCodec('libx264')  // Ensure video is transcoded to MP4 using H.264 codec
+                    .videoCodec('libx264')
                     .videoBitrate(
                         quality === '360p' ? '300k' :
                             quality === '480p' ? '600k' :
@@ -86,18 +86,24 @@ const upload_video = async (req, res) => {
                                 quality === '720p' ? '1280x720' :
                                     '1920x1080'
                     )
+                    .on('start', (commandLine) => {
+                        console.log('ffmpeg command line:', commandLine);
+                    })
                     .on('end', () => {
                         console.log(`Transcoded to ${quality}: ${outputQualityPath}`);
                         resolve(); // Resolve the promise when done
                     })
-                    .on('error', (err) => {
+                    .on('error', (err, stdout, stderr) => {
                         console.error('Error during transcoding:', err);
+                        console.error('ffmpeg stdout:', stdout);
+                        console.error('ffmpeg stderr:', stderr);
                         reject(err); // Reject the promise on error
                     })
                     .on('progress', (progress) => {
                         console.log(`Transcoding ${quality}: ${progress.percent}% done`);
                     })
                     .run();
+
             });
         }
 
