@@ -135,6 +135,7 @@ const stream_video = async (req, res) => {
 
     try {
         if (!fs.existsSync(videoPath) || !fs.statSync(videoPath).isFile()) {
+            console.log(`Requested video not found`);
             return res.status(404).send({ message: 'Video file not found.' });
         }
 
