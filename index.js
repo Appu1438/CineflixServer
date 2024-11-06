@@ -38,6 +38,9 @@ mongoose.connect(process.env.MONGO_URL).then(() => {
 
 app.use(express.json())
 
+app.get("/", (req, res) => {
+    res.send({ status: "Started" })
+})
 app.use('/api/auth', authRouter)
 app.use('/api/users', userRouter)
 app.use('/api/movies', moviesRouter)
