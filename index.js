@@ -16,22 +16,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
-// CORS setup to handle long file uploads and credentials
 app.use(cors({
     origin: (origin, callback) => {
         // Allow all origins dynamically (if no origin, set to true to allow)
         callback(null, origin || true);  // Allow all origins dynamically
     },
-    credentials: true, // Allow credentials to be sent (cookies, headers, etc.)
+    credentials: true, // Allow credentials (cookies, headers, etc.)
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Allow these headers
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allow custom header
 }));
 
-// Handle preflight OPTIONS request for CORS (important for file uploads)
+// Handle preflight OPTIONS request for CORS (important for custom headers)
 app.options('*', (req, res) => {
     res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Allow dynamic origin
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
     res.header("Access-Control-Allow-Credentials", "true");
     res.sendStatus(200);  // Send OK response for preflight
 });
@@ -40,14 +39,8 @@ app.options('*', (req, res) => {
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Dynamically set origin
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
     res.header("Access-Control-Allow-Credentials", "true");
-    next();
-});
-
-// Adjust server timeout settings to accommodate long uploads
-app.use((req, res, next) => {
-    res.setTimeout(60 * 60 * 1000);  // Timeout in 1000 minutes (60 minutes * 60 seconds * 1000 milliseconds)
     next();
 });
 
