@@ -17,8 +17,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 
-const cors = require('cors');
-
 // CORS setup to handle long file uploads and credentials
 app.use(cors({
     origin: (origin, callback) => {
