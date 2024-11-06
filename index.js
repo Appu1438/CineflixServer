@@ -18,9 +18,13 @@ app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 
 app.use(cors({
-    origin: '*', // Allow all origins
+    origin: (origin, callback) => {
+        // Allow all origins by returning the origin in the response
+        callback(null, origin || true);
+    },
     credentials: true, // Allow credentials to be sent
 }));
+
 
 
 
