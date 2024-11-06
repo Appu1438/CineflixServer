@@ -25,4 +25,8 @@ yarn-error.log*
 
 # Ignore video files in public assets
 
+# Ignore all files in public/assets/videos
 public/assets/videos/*
+
+# But do not ignore the public/assets/videos folder itself
+!public/assets/videos/
