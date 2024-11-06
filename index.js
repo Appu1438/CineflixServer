@@ -18,8 +18,19 @@ app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 
 app.use(cors({
-    origin: '*', // Allow all origins
+    origin: (origin, callback) => {
+        // Allow all origins by returning the origin in the response
+        callback(null, origin || true);
+    },
+    credentials: true, // Allow credentials to be sent
 }));
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin); // Dynamically set origin
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Credentials", "true"); // Allow credentials
+    next();
+});
 
 
 
