@@ -23,10 +23,11 @@ yarn-error.log*
 
 .env
 
-# Ignore video files in public assets
-
-# Ignore all files in public/assets/videos
+# Ignore everything in public/assets/videos
 public/assets/videos/*
 
-# But do not ignore the public/assets/videos folder itself
+# But explicitly include the folder itself
 !public/assets/videos/
+
+# And explicitly include the .gitkeep file (or any other placeholder file)
+!public/assets/videos/.gitkeep
