@@ -21,6 +21,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+.env
 
 # Ignore everything in public/assets/videos
 public/assets/videos/*
