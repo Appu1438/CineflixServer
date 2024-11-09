@@ -62,6 +62,7 @@ app.use('/api/lists', ListRouter)
 
 
 
-app.listen(process.env.PORT, () => {
-    console.log(`Server Running in ${process.env.PORT}`);
-})
+const port = process.env.PORT || 5000; // Default to port 3000 if not set
+app.listen(port, () => {
+    console.log(`Server Running on port ${port}`);
+});
