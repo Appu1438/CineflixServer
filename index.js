@@ -12,7 +12,6 @@ const ListRouter = require('./routes/lists')
 
 dotenv.config()
 app.use(cookieParser()); // Use cookie-parser middleware
-app.UseStaticFiles();
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(express.json({ limit: '10gb' }));
