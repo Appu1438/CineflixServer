@@ -211,7 +211,7 @@ const generateOTP = async (req, res) => {
         service: 'Gmail', // Use your email service provider here
         auth: {
             user: 'adithyans1438@gmail.com', // Your email address
-            pass: 'otls tpiy yemw dfig' // Your email password
+            pass: 'yvjx xsuc hgvy aoul' // Your email password
         }
     });
 
