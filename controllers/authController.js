@@ -82,9 +82,9 @@ const login = async (req, res) => {
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 
-        res.cookie('refreshToken', refreshToken, {
+        await res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: req.secure || process.env.NODE_ENV === 'production', // Use secure only when on HTTPS
+            secure: true, // Use secure only when on HTTPS
             sameSite: 'None', // Required for cross-origin cookies
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
@@ -110,7 +110,7 @@ const logout = async (req, res) => {
     try {
         console.log('logout');
         // Clear the refresh token cookie by setting it with an expired date
-        res.cookie('refreshToken', '', {
+        await res.cookie('refreshToken', '', {
             httpOnly: true,
             secure: true, // Use true in production for HTTPS
             sameSite: 'None',
