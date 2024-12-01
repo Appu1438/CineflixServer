@@ -9,7 +9,7 @@ const generateAccessToken = (user) => {
     return jwt.sign(
         { id: user._id, isAdmin: user.isAdmin },
         process.env.JWT_SECRET,
-        { expiresIn: '10min' }  // Access token expiration time
+        { expiresIn: '5min' }  // Access token expiration time
     );
 };
 
@@ -84,11 +84,11 @@ const login = async (req, res) => {
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: false, // Set to `false` for local development without HTTPS
-            sameSite: 'None', // Necessary for cross-origin requests
-            maxAge: 7 * 24 * 60 * 60 * 1000 // Expires after 7 days
+            secure: true,
+            sameSite: 'None',
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
-        
+
         // Remove the password from the user object
         const { password: pwd, ...info } = user._doc;
 
