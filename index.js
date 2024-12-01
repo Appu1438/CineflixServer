@@ -18,7 +18,7 @@ app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
     origin: '*', // Allow all origins
-    credentials: true, // Allow cookies and authorization headers
+    credentials: false, // Allow cookies and authorization headers
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allowed headers
 }));
