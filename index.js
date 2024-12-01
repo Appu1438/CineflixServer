@@ -18,24 +18,53 @@ app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
     origin: '*', // Allow all origins
+    credentials: true, // Allow cookies and authorization headers
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allowed headers
 }));
 
 
 // Handle preflight OPTIONS request for CORS (important for custom headers)
+// Handle preflight OPTIONS request for CORS (important for custom headers)
 app.options('*', (req, res) => {
-    res.header("Access-Control-Allow-Origin", '*');  // Allow dynamic origin
+    const origin = req.headers.origin;
+
+    // If credentials are included, we should not use the wildcard '*'
+    if (req.headers['access-control-allow-credentials'] === 'true') {
+        // Block wildcard usage for credentials requests
+        if (origin) {
+            res.header("Access-Control-Allow-Origin", origin);  // Dynamically set the origin
+        } else {
+            res.header("Access-Control-Allow-Origin", '');  // Block if no origin is provided
+        }
+    } else {
+        res.header("Access-Control-Allow-Origin", '*');  // Allow all origins if no credentials
+    }
+
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
+    res.header("Access-Control-Allow-Credentials", "true");  // Allow credentials to be sent
     res.sendStatus(200);  // Send OK response for preflight
 });
 
 // Apply CORS headers to all routes, including upload endpoints
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin",'*');  // Dynamically set origin
+    const origin = req.headers.origin;
+
+    // If credentials are included, we should not use the wildcard '*'
+    if (req.headers['access-control-allow-credentials'] === 'true') {
+        if (origin) {
+            res.header("Access-Control-Allow-Origin", origin);  // Dynamically set the origin
+        } else {
+            res.header("Access-Control-Allow-Origin", '');  // Block access if no origin is provided
+        }
+    } else {
+        res.header("Access-Control-Allow-Origin", '*');  // Allow all origins if no credentials
+    }
+
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
+    res.header("Access-Control-Allow-Credentials", "true");  // Allow credentials to be sent
     next();
 });
 
