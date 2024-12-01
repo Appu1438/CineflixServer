@@ -84,10 +84,11 @@ const login = async (req, res) => {
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: true,
-            sameSite: 'None',
-            maxAge: 7 * 24 * 60 * 60 * 1000
+            secure: req.secure || process.env.NODE_ENV === 'production', // Use secure only when on HTTPS
+            sameSite: 'None', // Required for cross-origin cookies
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
+        
 
         // Remove the password from the user object
         const { password: pwd, ...info } = user._doc;

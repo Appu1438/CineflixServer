@@ -45,13 +45,11 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-    try {
-        decodeURIComponent(req.path);
-        next();
-    } catch (e) {
-        res.status(400).send('Bad Request');
-    }
+    const ip = req.ip || req.connection.remoteAddress;
+    console.log('Request IP:', ip);
+    next();
 });
+
 
 mongoose.connect(process.env.MONGO_URL).then(() => {
     console.log("Database Connected")
