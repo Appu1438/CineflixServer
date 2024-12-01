@@ -17,18 +17,37 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow localhost:3000 for local development
-        if (origin === 'http://localhost:3000' || origin === 'http://localhost:4000' || !origin) {
-            callback(null, true); // Allow the origin (frontend domain or localhost)
-        } else {
-            callback(new Error('Not allowed by CORS'), false); // Reject other origins
-        }
-    },
+    origin: '*', // Allow all origins
     credentials: true, // Allow cookies and authorization headers
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allowed headers
 }));
+
+
+// Handle preflight OPTIONS request for CORS (important for custom headers)
+app.options('*', (req, res) => {
+    res.header("Access-Control-Allow-Origin", '*');  // Allow dynamic origin
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.sendStatus(200);  // Send OK response for preflight
+});
+
+// Apply CORS headers to all routes, including upload endpoints
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin",'*');  // Dynamically set origin
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
+    res.header("Access-Control-Allow-Credentials", "true");
+    next();
+});
+
+app.use((req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    console.log('Request IP:', ip);
+    next();
+});
+
 
 mongoose.connect(process.env.MONGO_URL).then(() => {
     console.log("Database Connected")
