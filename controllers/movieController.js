@@ -14,8 +14,9 @@ const History = require('../models/History')
 
 
 // Manually set the FFmpeg path
-// ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
-// ffmpeg.setFfprobePath('C:\\ffmpeg\\bin\\ffprobe.exe');
+
+// ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');   //for local use
+ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
 
 // Test if FFmpeg works
 ffmpeg.getAvailableFormats((err, formats) => {

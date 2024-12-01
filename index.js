@@ -17,31 +17,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow all origins dynamically (if no origin, set to true to allow)
-        callback(null, origin || true);  // Allow all origins dynamically
-    },
+    origin: '*', // Allow all origins; replace '*' with a specific domain for stricter control
     credentials: true, // Allow credentials (cookies, headers, etc.)
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allow custom header
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow specified methods
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Specify allowed headers
 }));
 
-// Handle preflight OPTIONS request for CORS (important for custom headers)
-app.options('*', (req, res) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Allow dynamic origin
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.sendStatus(200);  // Send OK response for preflight
-});
-
-// Apply CORS headers to all routes, including upload endpoints
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Dynamically set origin
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
-    res.header("Access-Control-Allow-Credentials", "true");
-    next();
+    try {
+        decodeURIComponent(req.path);
+        next();
+    } catch (e) {
+        res.status(400).send('Bad Request');
+    }
 });
 
 mongoose.connect(process.env.MONGO_URL).then(() => {
