@@ -11,6 +11,7 @@ const ffmpeg = require('fluent-ffmpeg')
 const mongoose = require('mongoose');
 const { storage, upload } = require('../utils/storage')
 const History = require('../models/History')
+const WebMWriter  = require('webm-writer'); // For WebM streaming
 
 
 // Manually set the FFmpeg path
@@ -25,7 +26,7 @@ ffmpeg.getAvailableFormats((err, formats) => {
     if (err) {
         console.error('Error:', err.message);
     } else {
-        console.log('Available formats:', formats);
+        console.log('FFMPEG Available');
     }
 });
 
@@ -49,6 +50,7 @@ const add_movie = async (req, res) => {
 
 
 // Video upload controller
+
 const upload_video = async (req, res) => {
     try {
         if (!req.file) {
@@ -57,69 +59,9 @@ const upload_video = async (req, res) => {
         const originalVideoPath = path.join(__dirname, '..', 'public', 'assets', 'videos', req.file.filename);
         console.log(`Original video uploaded to: ${originalVideoPath}`);
 
-        // Ensure that the output directory exists for transcoded videos
-        const outputDir = path.join(__dirname, '..', 'public', 'assets', 'videos');
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir);
-        }
-
-        // Change the file extension to .mp4 for transcoding
-        const videoFileNameWithoutExt = path.basename(req.file.filename, path.extname(req.file.filename));
-        const mp4VideoFileName = `${videoFileNameWithoutExt}.mp4`;
-
-        // Transcode to MP4 and different qualities
-        const qualities = ['360p', '480p', '720p', '1080p'];
-
-        // Use a for...of loop to await each transcoding operation
-        for (const quality of qualities) {
-            const outputQualityPath = path.join(outputDir, `${quality}_${videoFileNameWithoutExt}.mp4`);
-            await new Promise((resolve, reject) => {
-                ffmpeg(originalVideoPath)
-                    .output(outputQualityPath)
-                    .videoCodec('libx264')
-                    .videoBitrate(
-                        quality === '360p' ? '300k' :
-                            quality === '480p' ? '600k' :
-                                quality === '720p' ? '1200k' :
-                                    quality === '1080p' ? '2500k' : '1200k'
-                    )
-                    .size(
-                        quality === '360p' ? '640x360' :
-                            quality === '480p' ? '854x480' :
-                                quality === '720p' ? '1280x720' :
-                                    '1920x1080'
-                    )
-                    .on('start', (commandLine) => {
-                        console.log('ffmpeg command line:', commandLine);
-                    })
-                    .on('end', () => {
-                        console.log(`Transcoded to ${quality}: ${outputQualityPath}`);
-                        resolve(); // Resolve the promise when done
-                    })
-                    .on('error', (err, stdout, stderr) => {
-                        console.error('Error during transcoding:', err);
-                        console.error('ffmpeg stdout:', stdout);
-                        console.error('ffmpeg stderr:', stderr);
-                        reject(err); // Reject the promise on error
-                    })
-                    .on('progress', (progress) => {
-                        console.log(`Transcoding ${quality}: ${progress.percent}% done`);
-                    })
-                    .run();
-
-            });
-        }
-
-
-        fs.unlink(originalVideoPath, (err) => {
-            if (err) console.error(`Error deleting original video: ${err}`);
-            else console.log(`Original video deleted: ${originalVideoPath}`);
-        });
-
-        // Send response with video URL
         res.status(200).send({
-            message: 'Video uploaded and transcoded successfully!',
-            videoUrl: mp4VideoFileName,  // Path to access the original video
+            message: 'Video uploaded successfully!',
+            videoUrl: req.file.filename, // Save filename for reference in streaming
         });
     } catch (error) {
         console.error('Error uploading video:', error);
@@ -128,35 +70,32 @@ const upload_video = async (req, res) => {
 };
 
 
-
-
 const stream_video = async (req, res) => {
     const filename = req.query.filename;
     const quality = req.query.quality || "720p"; // Default to 720p if not specified
 
     console.log(`Requested video: ${filename}, Quality: ${quality}`);
 
-    // Get the path of the video based on requested quality
-    const quality_filename = `${quality}_${filename}`;
-    // Construct the path to the transcoded video
-    const videoPath = path.join(__dirname, '..', 'public', 'assets', 'videos', quality_filename); // Ensure the path is correct
-    console.log(videoPath)
+    const originalVideoPath = path.join(__dirname, '..', 'public', 'assets', 'videos', filename);
+    console.log(originalVideoPath);
 
     try {
-        if (!fs.existsSync(videoPath) || !fs.statSync(videoPath).isFile()) {
-            console.log(`Requested video not found`);
+        if (!fs.existsSync(originalVideoPath) || !fs.statSync(originalVideoPath).isFile()) {
+            console.log(`Original video not found`);
             return res.status(404).send({ message: 'Video file not found.' });
         }
 
-        const stat = fs.statSync(videoPath);
-        const fileSize = stat.size;
         const range = req.headers.range;
+        const stat = fs.statSync(originalVideoPath);
+        const fileSize = stat.size;
 
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
             const start = parseInt(parts[0], 10);
-            const end = Math.min(start + 1000000, fileSize - 1); // 1MB chunk size
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
             const chunkSize = (end - start) + 1;
+
+            const fileStream = fs.createReadStream(originalVideoPath, { start, end });
 
             res.writeHead(206, {
                 'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -165,16 +104,30 @@ const stream_video = async (req, res) => {
                 'Content-Type': 'video/mp4',
             });
 
-            // Stream the requested quality video
-            fs.createReadStream(videoPath, { start, end }).pipe(res);
+            fileStream.pipe(res);
+
+            fileStream.on('error', (err) => {
+                console.error('Error during normal streaming:', err);
+                res.status(500).send({ message: 'Error during normal streaming.', error: err.message });
+            });
+
         } else {
-            // No range requested, send the entire video
-            res.writeHead(200, { 'Content-Length': fileSize, 'Content-Type': 'video/mp4' });
-            fs.createReadStream(videoPath).pipe(res);
+            res.writeHead(200, { 'Content-Type': 'video/mp4', 'Content-Length': fileSize });
+
+            const fileStream = fs.createReadStream(originalVideoPath);
+            fileStream.pipe(res);
+
+            fileStream.on('error', (err) => {
+                console.error('Error during normal streaming:', err);
+                res.status(500).send({ message: 'Error during normal streaming.', error: err.message });
+            });
         }
     } catch (error) {
         console.error('Error streaming video:', error);
-        res.status(500).send('Error streaming video');
+
+        if (!res.headersSent) {
+            res.status(500).send({ message: 'Error streaming video', error: error.message });
+        }
     }
 };
 
