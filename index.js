@@ -17,18 +17,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow all origins dynamically (if no origin, set to true to allow)
-        callback(null, origin || true);  // Allow all origins dynamically
-    },
+    origin: ['https://cineflixadmin.onrender.com', 'https://cineflix-zbtp.onrender.com'], // Specify the allowed origins
     credentials: true, // Allow credentials (cookies, headers, etc.)
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allow custom header
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allowed headers
 }));
 
-// Handle preflight OPTIONS request for CORS (important for custom headers)
 app.options('*', (req, res) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Allow dynamic origin
+    res.header("Access-Control-Allow-Origin", req.headers.origin || '*');  // Dynamically set origin
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Custom-Header");
     res.header("Access-Control-Allow-Credentials", "true");
@@ -43,6 +39,7 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Credentials", "true");
     next();
 });
+
 
 mongoose.connect(process.env.MONGO_URL).then(() => {
     console.log("Database Connected")
