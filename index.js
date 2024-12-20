@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ extended: true, limit: '10gb' }));
 app.use(cors({
-    origin: ['https://cineflixadmin.onrender.com', 'https://cineflix-zbtp.onrender.com'], // Specify the allowed origins
+    origin: ['https://cineflixadmin.onrender.com', 'https://cineflix-zbtp.onrender.com','http://localhost:3000', 'http://localhost:4000'], // Specify the allowed origins
     credentials: true, // Allow credentials (cookies, headers, etc.)
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Custom-Header'], // Allowed headers

@@ -11,17 +11,25 @@ const ffmpeg = require('fluent-ffmpeg')
 const mongoose = require('mongoose');
 const { storage, upload } = require('../utils/storage')
 const History = require('../models/History')
-const WebMWriter  = require('webm-writer'); // For WebM streaming
 
 
-// Manually set the FFmpeg path
-// ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
-// ffmpeg.setFfprobePath('C:\\ffmpeg\\bin\\ffprobe.exe');
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
 
-// ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
+// Load AWS credentials from environment variables
+AWS.config.update({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION
+});
+
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+});
 
 
-// Test if FFmpeg works
 ffmpeg.getAvailableFormats((err, formats) => {
     if (err) {
         console.error('Error:', err.message);
@@ -47,21 +55,100 @@ const add_movie = async (req, res) => {
 
     }
 }
-
-
 // Video upload controller
+
+const uploadToS3 = (filePath, s3Key) => {
+    const fs = require('fs');
+    const fileStream = fs.createReadStream(filePath);
+
+    const params = {
+        Bucket: process.env.S3_BUCKET_NAME, // Your bucket name
+        Key: s3Key, // The unique key (file name) in S3
+        Body: fileStream, // The file stream
+        ContentType: 'video/mp4', // Content type (adjust as needed)
+        // Remove ACL property or don't specify it
+        // ACL: 'public-read' // <- Remove this line to avoid the ACL error
+    };
+
+    return s3.upload(params).promise();
+};
+
 
 const upload_video = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).send({ message: 'No video file uploaded.' });
         }
+
         const originalVideoPath = path.join(__dirname, '..', 'public', 'assets', 'videos', req.file.filename);
         console.log(`Original video uploaded to: ${originalVideoPath}`);
 
+        // Get a unique video ID (this could come from a database or be generated)
+        const videoId = uuidv4(); // For example, using a UUID for the video ID
+
+        // Transcode to MP4 and different qualities
+        const qualities = ['360p', '480p', '720p', '1080p'];
+        const s3Urls = {};
+
+        for (const quality of qualities) {
+            const outputQualityPath = path.join(__dirname, '..', 'public', 'assets', 'videos', `${quality}_${videoId}.mp4`);
+            await new Promise((resolve, reject) => {
+                ffmpeg(originalVideoPath)
+                    .output(outputQualityPath)
+                    .videoCodec('libx264')
+                    .videoBitrate(
+                        quality === '360p' ? '300k' :
+                            quality === '480p' ? '600k' :
+                                quality === '720p' ? '1200k' :
+                                    quality === '1080p' ? '2500k' : '1200k'
+                    )
+                    .size(
+                        quality === '360p' ? '640x360' :
+                            quality === '480p' ? '854x480' :
+                                quality === '720p' ? '1280x720' :
+                                    '1920x1080'
+                    )
+                    .on('start', (commandLine) => {
+                        console.log('ffmpeg command line:', commandLine);
+                    })
+                    .on('end', async () => {
+                        console.log(`Transcoded to ${quality}: ${outputQualityPath}`);
+                        try {
+                            // Generate a unique S3 key based on videoId and quality
+                            const s3Key = `${videoId}/${quality}_${videoId}.mp4`;
+
+                            // Upload the transcoded video to S3
+                            const uploadResult = await uploadToS3(outputQualityPath, s3Key);
+                            s3Urls[quality] = uploadResult.Location;
+
+                            // Delete the transcoded file from local storage
+                            fs.unlinkSync(outputQualityPath);
+                            resolve();
+                        } catch (uploadError) {
+                            reject(uploadError);
+                        }
+                    })
+                    .on('error', (err, stdout, stderr) => {
+                        console.error('Error during transcoding:', err);
+                        console.error('ffmpeg stdout:', stdout);
+                        console.error('ffmpeg stderr:', stderr);
+                        reject(err);
+                    })
+                    .run();
+            });
+        }
+
+        // Delete the original uploaded video
+        fs.unlink(originalVideoPath, (err) => {
+            if (err) console.error(`Error deleting original video: ${err}`);
+            else console.log(`Original video deleted: ${originalVideoPath}`);
+        });
+
+        console.log(videoId, s3Urls)
+        // Send response with S3 URLs
         res.status(200).send({
-            message: 'Video uploaded successfully!',
-            videoUrl: req.file.filename, // Save filename for reference in streaming
+            message: 'Video uploaded and transcoded successfully!',
+            videoUrl: videoId,
         });
     } catch (error) {
         console.error('Error uploading video:', error);
@@ -71,66 +158,66 @@ const upload_video = async (req, res) => {
 
 
 const stream_video = async (req, res) => {
-    const filename = req.query.filename;
-    const quality = req.query.quality || "720p"; // Default to 720p if not specified
-
-    console.log(`Requested video: ${filename}, Quality: ${quality}`);
-
-    const originalVideoPath = path.join(__dirname, '..', 'public', 'assets', 'videos', filename);
-    console.log(originalVideoPath);
+    const { filename, quality = "720p" } = req.query; // Default to 720p if not specified
+    const bucketName = process.env.S3_BUCKET_NAME; // Your S3 bucket name
+    const s3Key = `${filename}/${quality}_${filename}.mp4`; // Construct the S3 object key
+    console.log(`Requested video: ${filename}, Quality: ${quality}, S3 Key: ${s3Key}`);
 
     try {
-        if (!fs.existsSync(originalVideoPath) || !fs.statSync(originalVideoPath).isFile()) {
-            console.log(`Original video not found`);
-            return res.status(404).send({ message: 'Video file not found.' });
-        }
+        const range = req.headers.range; // Get the range header
 
-        const range = req.headers.range;
-        const stat = fs.statSync(originalVideoPath);
-        const fileSize = stat.size;
+        if (!range) {
+            // No range specified - send the entire video
+            const s3Params = {
+                Bucket: bucketName,
+                Key: s3Key,
+            };
 
-        if (range) {
-            const parts = range.replace(/bytes=/, '').split('-');
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-            const chunkSize = (end - start) + 1;
+            // Stream the entire file from S3
+            const s3Stream = s3.getObject(s3Params).createReadStream();
 
-            const fileStream = fs.createReadStream(originalVideoPath, { start, end });
-
-            res.writeHead(206, {
-                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                'Accept-Ranges': 'bytes',
-                'Content-Length': chunkSize,
+            res.writeHead(200, {
                 'Content-Type': 'video/mp4',
             });
 
-            fileStream.pipe(res);
-
-            fileStream.on('error', (err) => {
-                console.error('Error during normal streaming:', err);
-                res.status(500).send({ message: 'Error during normal streaming.', error: err.message });
+            s3Stream.on('error', (err) => {
+                console.error('Error reading from S3:', err);
+                res.status(500).send('Error streaming video');
             });
 
+            s3Stream.pipe(res);
         } else {
-            res.writeHead(200, { 'Content-Type': 'video/mp4', 'Content-Length': fileSize });
+            // Handle range requests for partial content
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : start + 10 ** 6; // Default 1MB chunk size
 
-            const fileStream = fs.createReadStream(originalVideoPath);
-            fileStream.pipe(res);
+            const s3Params = {
+                Bucket: bucketName,
+                Key: s3Key,
+                Range: `bytes=${start}-${end}`,
+            };
 
-            fileStream.on('error', (err) => {
-                console.error('Error during normal streaming:', err);
-                res.status(500).send({ message: 'Error during normal streaming.', error: err.message });
+            // Fetch the partial content from S3
+            const s3Object = await s3.getObject(s3Params).promise();
+
+            const contentLength = s3Object.ContentLength;
+            const totalLength = s3Object.ContentRange.split('/')[1]; // e.g., "bytes 0-1024/4096"
+
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${start + contentLength - 1}/${totalLength}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': contentLength,
+                'Content-Type': 'video/mp4',
             });
+
+            res.end(s3Object.Body); // Send the video chunk as the response
         }
     } catch (error) {
-        console.error('Error streaming video:', error);
-
-        if (!res.headersSent) {
-            res.status(500).send({ message: 'Error streaming video', error: error.message });
-        }
+        console.error('Error streaming video from S3:', error.message);
+        res.status(500).send('Error streaming video');
     }
 };
-
 
 
 const update_movie = async (req, res) => {
