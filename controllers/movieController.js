@@ -158,6 +158,10 @@ const upload_video = async (req, res) => {
 
 
 const stream_video = async (req, res) => {
+    console.log("Bucket Name:", process.env.S3_BUCKET_NAME);
+    console.log("AWS Access Key:", process.env.AWS_ACCESS_KEY_ID);
+    console.log("AWS Region:", process.env.AWS_REGION);
+
     const { filename, quality = "720p" } = req.query; // Default to 720p if not specified
     const bucketName = process.env.S3_BUCKET_NAME; // Your S3 bucket name
     const s3Key = `${filename}/${quality}_${filename}.mp4`; // Construct the S3 object key
